@@ -10,9 +10,7 @@
 // by Jones Chi (duguschi@gmail.com)
 #include <stdio.h>
 #include <Python.h>
-#ifndef _WIN32
 #include <pthread.h>
-#endif
 
 static unsigned short const stackblur_mul[255] =
 {
@@ -54,14 +52,14 @@ static unsigned char const stackblur_shr[255] =
     24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24
 };
 
-void stackblurJob(PyObject *obj,      ///< list format of input image data
-                  unsigned int w,     ///< image width
-                  unsigned int h,     ///< image height
-                  unsigned int radius,///< blur intensity (should be in 2..254 range)
-                  int cores,          ///< total number of working threads
-                  int core,           ///< current thread number
-                  int step,           ///< step of processing (1,2)
-                  unsigned char *stack///< stack buffer
+void stackblurJob(PyObject *obj,        ///< list format of input image data
+                  unsigned int w,       ///< image width
+                  unsigned int h,       ///< image height
+                  unsigned int radius,  ///< blur intensity (should be in 2..254 range)
+                  int cores,            ///< total number of working threads
+                  int core,             ///< current thread number
+                  int step,             ///< step of processing (1,2)
+                  unsigned char *stack  ///< stack buffer
                   )
 {
     unsigned int x, y, xp, yp, i;
@@ -91,7 +89,7 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
             sum = sum_in = sum_out = 0;
 
             src_index = w * y;
-            src_value = PyInt_AsLong(PyList_GetItem(obj, src_index));
+            src_value = PyLong_AsLong(PyList_GetItem(obj, src_index));
 
             for (i = 0; i <= radius; i++) {
                 stack_ptr = &stack[i];
@@ -103,7 +101,7 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
 
             for (i = 1; i <= radius; i++) {
                 if (i <= wm) src_index += 1;
-                src_value = PyInt_AsLong(PyList_GetItem(obj, src_index));
+                src_value = PyLong_AsLong(PyList_GetItem(obj, src_index));
                 stack_ptr = &stack[i + radius];
                 stack_ptr[0] = src_value;
                 sum += src_value * (radius + 1 - i);
@@ -117,7 +115,7 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
             src_index = xp + y * w; // img.pix_ptr(xp, y);
             dst_index = y * w; // img.pix_ptr(0, y);
             for (x = 0; x < w; x++) {
-                PyList_SetItem(obj, dst_index, PyInt_FromLong((sum * mul_sum) >> shr_sum));
+                PyList_SetItem(obj, dst_index, PyLong_FromLong((sum * mul_sum) >> shr_sum));
                 dst_index += 1;
 
                 sum -= sum_out;
@@ -133,7 +131,7 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
                     ++xp;
                 }
 
-                src_value = PyInt_AsLong(PyList_GetItem(obj, src_index));
+                src_value = PyLong_AsLong(PyList_GetItem(obj, src_index));
                 stack_ptr[0] = src_value;
 
                 sum_in += src_value;
@@ -158,7 +156,7 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
             sum = sum_in = sum_out = 0;
 
             src_index = x; // x,0
-            src_value = PyInt_AsLong(PyList_GetItem(obj, src_index));
+            src_value = PyLong_AsLong(PyList_GetItem(obj, src_index));
             for (i = 0; i <= radius; i++) {
                 stack_ptr = &stack[i];
                 stack_ptr[0] = src_value;
@@ -168,7 +166,7 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
             for (i = 1; i <= radius; i++) {
                 if (i <= hm) src_index += w; // +stride
 
-                src_value = PyInt_AsLong(PyList_GetItem(obj, src_index));
+                src_value = PyLong_AsLong(PyList_GetItem(obj, src_index));
                 stack_ptr = &stack[i + radius];
                 stack_ptr[0] = src_value;
                 sum += src_value * (radius + 1 - i);
@@ -181,7 +179,7 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
             src_index = x + yp * w; // img.pix_ptr(x, yp);
             dst_index = x; // img.pix_ptr(x, 0);
             for (y = 0; y < h; y++) {
-                PyList_SetItem(obj, dst_index, PyInt_FromLong((sum * mul_sum) >> shr_sum));
+                PyList_SetItem(obj, dst_index, PyLong_FromLong((sum * mul_sum) >> shr_sum));
                 dst_index += w;
 
                 sum -= sum_out;
@@ -197,7 +195,7 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
                     ++yp;
                 }
 
-                src_value = PyInt_AsLong(PyList_GetItem(obj, src_index));
+                src_value = PyLong_AsLong(PyList_GetItem(obj, src_index));
                 stack_ptr[0] = src_value;
 
                 sum_in += src_value;
@@ -214,7 +212,6 @@ void stackblurJob(PyObject *obj,      ///< list format of input image data
     }
 }
 
-#ifndef _WIN32
 struct WorkerData
 {
     PyObject *obj;
@@ -227,12 +224,11 @@ struct WorkerData
     unsigned char *stack;
 };
 
-void worker_func(void *data)
+void *worker_func(void *data)
 {
     struct WorkerData *d = data;
     stackblurJob(d->obj, d->w, d->h, d->radius, d->cores, d->core, d->step, d->stack);
 }
-#endif
 
 static PyObject *
 cstackblur_stackblur(PyObject *self, PyObject *args)
@@ -249,68 +245,39 @@ cstackblur_stackblur(PyObject *self, PyObject *args)
     }
 
     unsigned int div = (radius * 2) + 1;
+    unsigned char *stack = malloc(div);
+    stackblurJob(obj, w, h, radius, 1, 0, 1, stack);
+    stackblurJob(obj, w, h, radius, 1, 0, 2, stack);
+    free(stack);
 
-#ifndef _WIN32
-    if (cores == 1) {
-#endif
-        unsigned char *stack = malloc(div);
-        // no multithreading
-        stackblurJob(obj, w, h, radius, 1, 0, 1, stack);
-        stackblurJob(obj, w, h, radius, 1, 0, 2, stack);
-        free(stack);
-#ifndef _WIN32
-    } else {
-        unsigned char *stack = malloc(div * cores);
-        pthread_t ids[cores];
-        struct WorkerData data[cores];
-        int i;
-
-        for (i = 0; i < cores; i++) {
-            data[i].obj = obj;
-            data[i].w = w;
-            data[i].h = h;
-            data[i].radius = radius;
-            data[i].cores = cores;
-            data[i].core = i;
-            data[i].step = 1;
-            data[i].stack = stack + div * i;
-            int ret = pthread_create(&ids[i], NULL, (void *)worker_func, &data[i]);
-            if (ret != 0) {
-                Py_INCREF(Py_None);
-                return Py_None;
-            }
-        }
-
-        for (i = 0; i < cores; i++) {
-            pthread_join(ids[i], NULL);
-        }
-
-        for (i = 0; i < cores; i++) {
-            data[i].step = 2;
-            int ret = pthread_create(&ids[i], NULL, (void *)worker_func, &data[i]);
-            if (ret != 0) {
-                Py_INCREF(Py_None);
-                return Py_None;
-            }
-        }
-
-        for (i = 0; i < cores; i++) {
-            pthread_join(ids[i], NULL);
-        }
-        free(stack);
-    }
-#endif
     return Py_BuildValue("O", obj);
 }
 
-static PyMethodDef StackBlurMethods[] = {
-    {"stackblur", cstackblur_stackblur, METH_VARARGS,
-     "Blur the image by Stack Blur."},
+
+// Method list
+// all method in c should written here, and add an extra array like below.
+static PyMethodDef exampleMethods[] =
+{
+    {"stackblur", cstackblur_stackblur, METH_VARARGS, "Blur the image by Stack Blur."},
     {NULL, NULL, 0, NULL}
 };
 
-PyMODINIT_FUNC
-initcstackblur(void)
+// This structure should named like this : <module_name>
+static struct PyModuleDef stackblur =
 {
-    (void) Py_InitModule("cstackblur", StackBlurMethods);
+    PyModuleDef_HEAD_INIT,          // m_base       / Always initialize this member to PyModuleDef_HEAD_INIT
+    "stackblur",                    // m_name       / module name
+    "Blur the image by Stack Blur.",// m_doc        / docstring
+    -1,                             // m_size       / size of per-interpreter state of the module, or -1 if the module keeps state in global variables
+    exampleMethods,                 // m_methods    / pointer of method list
+    NULL,                           // m_reload
+    NULL,                           // m_traverse
+    NULL,                           // m_clear
+    NULL,                           // m_free
+};
+
+PyMODINIT_FUNC
+PyInit_cstackblur(void)
+{
+    return PyModule_Create(&stackblur);
 }

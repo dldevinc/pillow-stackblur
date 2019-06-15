@@ -18,8 +18,8 @@ Example:
 --------
 Blur the image with radius 10.
 ```python
-from stackblur import StackBlur
 from PIL import Image
+from stackblur import StackBlur
 im = Image.open('img.png')
 im = im.filter(StackBlur(10))
 im.save('blurred_img.png')
@@ -27,12 +27,6 @@ im.save('blurred_img.png')
 
 Installation:
 -------------
-Install via setup tools:
-
-    ./setup.py install
-
-Install via PIP:
-
-    pip install -e git://github.com/JonesChi/pillow-stackblur.git#egg=pillow-stackblur
+    pip install pillow-stackblur
 
 Please remember to install `pillow` before using this library.

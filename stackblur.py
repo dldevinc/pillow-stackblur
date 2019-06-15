@@ -2,6 +2,7 @@ import multiprocessing
 from PIL import ImageFilter
 from cstackblur import stackblur
 
+
 class StackBlur(ImageFilter.Filter):
     """Stack blur filter.
 
