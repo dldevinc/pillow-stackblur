@@ -9,6 +9,7 @@ eggs/
 *.pyc
 
 .env/
+.venv/
 .tox/
 env/
 venv/

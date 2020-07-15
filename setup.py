@@ -17,8 +17,8 @@ DESCRIPTION = 'The Pillow filter for Stack Blur.'
 URL = 'https://github.com/dldevinc/pillow-stackblur'
 EMAIL = 'duguschi@gmail.com'
 AUTHOR = 'Jones Chi'
-REQUIRES_PYTHON = '>=3.5.0,<3.8.0'
-VERSION = '0.0.2'
+REQUIRES_PYTHON = '>=3.5.0'
+VERSION = '0.1.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
